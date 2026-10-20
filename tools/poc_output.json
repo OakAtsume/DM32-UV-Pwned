@@ -1,0 +1,319 @@
+{
+  "model": "DP570UV",
+  "firmware": "DM32.01.L01.048",
+  "dmr_id": 1234567,
+  "radio_name": "Generic-123",
+  "callsign": "CR1KK7ISG",
+  "owner": "Oak Atsume",
+  "keys": [
+    {
+      "name": "OakKey",
+      "hex": "(empty)"
+    },
+    {
+      "name": "Encrypt 1",
+      "hex": "41424344454647484A4B4C4D4E4F505152535455565758595A31323334353637",
+      "ascii": "ABCDEFGHJKLMNOPQRSTUVWXYZ1234567"
+    }
+  ],
+  "channels": [
+    {
+      "name": "WC-Davis-Utah",
+      "rx": 447.375,
+      "tx": 442.375,
+      "mode": "FM"
+    },
+    {
+      "name": "WC-North-Utah",
+      "rx": 447.375,
+      "tx": 442.375,
+      "mode": "FM"
+    },
+    {
+      "name": "WC-North-E-Utah",
+      "rx": 447.375,
+      "tx": 442.375,
+      "mode": "FM"
+    },
+    {
+      "name": "WC-Utah-TAC",
+      "rx": 447.375,
+      "tx": 442.375,
+      "mode": "FM"
+    },
+    {
+      "name": "WC-Local-1",
+      "rx": 447.375,
+      "tx": 442.375,
+      "mode": "FM"
+    },
+    {
+      "name": "WC-Local-2",
+      "rx": 447.375,
+      "tx": 442.375,
+      "mode": "FM"
+    },
+    {
+      "name": "WC-76ers",
+      "rx": 447.375,
+      "tx": 442.375,
+      "mode": "FM"
+    },
+    {
+      "name": "WC-USA",
+      "rx": 447.375,
+      "tx": 442.375,
+      "mode": "FM"
+    },
+    {
+      "name": "WC-Utah-State",
+      "rx": 447.375,
+      "tx": 442.375,
+      "mode": "FM"
+    },
+    {
+      "name": "WC-Echo-Test",
+      "rx": 447.375,
+      "tx": 442.375,
+      "mode": "FM"
+    },
+    {
+      "name": "WC-TAC-310",
+      "rx": 447.375,
+      "tx": 442.375,
+      "mode": "FM"
+    },
+    {
+      "name": "WC-TAC-311",
+      "rx": 447.375,
+      "tx": 442.375,
+      "mode": "FM"
+    },
+    {
+      "name": "WC-TAC-312",
+      "rx": 447.375,
+      "tx": 442.375,
+      "mode": "FM"
+    },
+    {
+      "name": "VHF Simplex",
+      "rx": 146.52,
+      "tx": 146.52,
+      "mode": "DMR"
+    },
+    {
+      "name": "UHF Simplex",
+      "rx": 446.0,
+      "tx": 446.0,
+      "mode": "DMR"
+    },
+    {
+      "name": "HackerSpace",
+      "rx": 146.42,
+      "tx": 146.42,
+      "mode": "DMR"
+    },
+    {
+      "name": "HackerCamp",
+      "rx": 146.55,
+      "tx": 146.55,
+      "mode": "DMR"
+    },
+    {
+      "name": "UARC 146.62",
+      "rx": 146.62,
+      "tx": 146.02,
+      "mode": "DMR"
+    },
+    {
+      "name": "KR1P",
+      "rx": 447.05,
+      "tx": 442.05,
+      "mode": "DMR"
+    },
+    {
+      "name": "Francis 146.96",
+      "rx": 146.96,
+      "tx": 146.36,
+      "mode": "DMR"
+    },
+    {
+      "name": "Antelope 147.04",
+      "rx": 147.04,
+      "tx": 147.64,
+      "mode": "DMR"
+    },
+    {
+      "name": "MtOgden 146.90",
+      "rx": 146.9,
+      "tx": 146.3,
+      "mode": "DMR"
+    },
+    {
+      "name": "Intertie 147.12",
+      "rx": 147.12,
+      "tx": 147.72,
+      "mode": "DMR"
+    },
+    {
+      "name": "Farnsw 146.94",
+      "rx": 146.94,
+      "tx": 146.34,
+      "mode": "DMR"
+    },
+    {
+      "name": "Shepherd 449.875",
+      "rx": 449.875,
+      "tx": 444.875,
+      "mode": "DMR"
+    },
+    {
+      "name": "Kaysvil 449.700",
+      "rx": 449.7,
+      "tx": 444.7,
+      "mode": "DMR"
+    },
+    {
+      "name": "Antelope 447.200",
+      "rx": 447.2,
+      "tx": 442.2,
+      "mode": "DMR"
+    },
+    {
+      "name": "MtOgden 448.600",
+      "rx": 448.6,
+      "tx": 443.6,
+      "mode": "DMR"
+    },
+    {
+      "name": "Clearfld 449.950",
+      "rx": 449.95,
+      "tx": 444.95,
+      "mode": "DMR"
+    },
+    {
+      "name": "WestPt 447.075",
+      "rx": 447.075,
+      "tx": 442.075,
+      "mode": "DMR"
+    },
+    {
+      "name": "Bountfl 449.925",
+      "rx": 449.925,
+      "tx": 444.925,
+      "mode": "DMR"
+    }
+  ],
+  "contacts": [
+    {
+      "name": "76ers",
+      "dmr_id": 31490,
+      "type": "Group"
+    },
+    {
+      "name": "All-Call",
+      "dmr_id": 16777215,
+      "type": "All Call"
+    },
+    {
+      "name": "Davis-Utah",
+      "dmr_id": 31492,
+      "type": "Group"
+    },
+    {
+      "name": "Echo-Test",
+      "dmr_id": 9990,
+      "type": "Group"
+    },
+    {
+      "name": "N-Utah",
+      "dmr_id": 31491,
+      "type": "Group"
+    },
+    {
+      "name": "NE-Utah",
+      "dmr_id": 31493,
+      "type": "Group"
+    },
+    {
+      "name": "North-America",
+      "dmr_id": 93,
+      "type": "Group"
+    },
+    {
+      "name": "Operations",
+      "dmr_id": 9,
+      "type": "Group"
+    },
+    {
+      "name": "Simplex",
+      "dmr_id": 99,
+      "type": "Group"
+    },
+    {
+      "name": "TAC-310",
+      "dmr_id": 310,
+      "type": "Group"
+    },
+    {
+      "name": "TAC-311",
+      "dmr_id": 311,
+      "type": "Group"
+    },
+    {
+      "name": "TAC-312",
+      "dmr_id": 312,
+      "type": "Group"
+    },
+    {
+      "name": "USA",
+      "dmr_id": 3100,
+      "type": "Group"
+    },
+    {
+      "name": "Utah",
+      "dmr_id": 3149,
+      "type": "Group"
+    },
+    {
+      "name": "Utah-Ragchew-1",
+      "dmr_id": 314901,
+      "type": "Group"
+    },
+    {
+      "name": "Utah-Ragchew-2",
+      "dmr_id": 314900,
+      "type": "Group"
+    },
+    {
+      "name": "Utah-TAC",
+      "dmr_id": 31499,
+      "type": "Group"
+    },
+    {
+      "name": "Worldwide",
+      "dmr_id": 91,
+      "type": "Group"
+    },
+    {
+      "name": "MAIN",
+      "dmr_id": 1738,
+      "type": "Group"
+    },
+    {
+      "name": "Housekeeping",
+      "dmr_id": 6,
+      "type": "Group"
+    },
+    {
+      "name": "Adventuredome",
+      "dmr_id": 8,
+      "type": "Group"
+    },
+    {
+      "name": "Security",
+      "dmr_id": 19,
+      "type": "Group"
+    }
+  ]
+}
