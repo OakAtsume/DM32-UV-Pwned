@@ -1,0 +1,1217 @@
+<title>DM-32UV Security Findings</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Inter:wght@400;500;600;700&display=swap">
+<style>
+/* Dark-first: security research report for radio firmware RE */
+:root {
+  --bg: #0c0e12;
+  --bg-surface: #14171e;
+  --bg-raised: #1c2029;
+  --fg: #c8cdd8;
+  --fg-dim: #6b7280;
+  --fg-bright: #e8ecf4;
+  --accent: #60a5fa;
+  --accent-dim: rgba(96, 165, 250, 0.12);
+  --critical: #f87171;
+  --critical-dim: rgba(248, 113, 113, 0.12);
+  --warn: #fbbf24;
+  --warn-dim: rgba(251, 191, 36, 0.10);
+  --ok: #34d399;
+  --ok-dim: rgba(52, 211, 153, 0.10);
+  --border: #2a2e38;
+  --mono: 'IBM Plex Mono', 'Menlo', monospace;
+  --sans: 'Inter', system-ui, -apple-system, sans-serif;
+  color-scheme: dark;
+}
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme="dark"]) {
+    --bg: #f5f6f8;
+    --bg-surface: #ffffff;
+    --bg-raised: #ebedf2;
+    --fg: #2d3240;
+    --fg-dim: #7c8290;
+    --fg-bright: #111827;
+    --accent: #2563eb;
+    --accent-dim: rgba(37, 99, 235, 0.08);
+    --critical: #dc2626;
+    --critical-dim: rgba(220, 38, 38, 0.08);
+    --warn: #d97706;
+    --warn-dim: rgba(217, 119, 6, 0.06);
+    --ok: #059669;
+    --ok-dim: rgba(5, 150, 105, 0.06);
+    --border: #d4d6de;
+    color-scheme: light;
+  }
+}
+:root[data-theme="light"] {
+  --bg: #f5f6f8;
+  --bg-surface: #ffffff;
+  --bg-raised: #ebedf2;
+  --fg: #2d3240;
+  --fg-dim: #7c8290;
+  --fg-bright: #111827;
+  --accent: #2563eb;
+  --accent-dim: rgba(37, 99, 235, 0.08);
+  --critical: #dc2626;
+  --critical-dim: rgba(220, 38, 38, 0.08);
+  --warn: #d97706;
+  --warn-dim: rgba(217, 119, 6, 0.06);
+  --ok: #059669;
+  --ok-dim: rgba(5, 150, 105, 0.06);
+  --border: #d4d6de;
+  color-scheme: light;
+}
+
+body {
+  background: var(--bg);
+  color: var(--fg);
+  font-family: var(--sans);
+  line-height: 1.6;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 2rem;
+}
+
+.wrap { max-width: 52rem; margin: 0 auto; }
+
+h1 {
+  font-family: var(--mono);
+  font-size: 1.75rem;
+  font-weight: 600;
+  color: var(--fg-bright);
+  text-wrap: balance;
+  margin: 0 0 0.25rem;
+  letter-spacing: -0.02em;
+}
+
+.subtitle {
+  font-size: 0.875rem;
+  color: var(--fg-dim);
+  margin-bottom: 2rem;
+}
+
+.subtitle span { color: var(--accent); }
+
+h2 {
+  font-family: var(--mono);
+  font-size: 1.125rem;
+  font-weight: 600;
+  color: var(--fg-bright);
+  text-wrap: balance;
+  margin: 2.5rem 0 1rem;
+  padding-bottom: 0.5rem;
+  border-bottom: 1px solid var(--border);
+}
+
+h3 {
+  font-size: 0.9375rem;
+  font-weight: 600;
+  color: var(--fg-bright);
+  margin: 1.5rem 0 0.5rem;
+}
+
+.finding {
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 1.25rem;
+  margin-bottom: 1rem;
+  position: relative;
+  overflow: hidden;
+}
+
+.finding::before {
+  content: '';
+  position: absolute;
+  left: 0; top: 0; bottom: 0;
+  width: 3px;
+}
+
+.finding.critical::before { background: var(--critical); }
+.finding.warn::before { background: var(--warn); }
+.finding.info::before { background: var(--accent); }
+
+.finding-head {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.sev {
+  font-family: var(--mono);
+  font-size: 0.6875rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  padding: 0.15em 0.6em;
+  border-radius: 4px;
+}
+.sev-critical { background: var(--critical-dim); color: var(--critical); }
+.sev-high { background: var(--warn-dim); color: var(--warn); }
+.sev-medium { background: var(--accent-dim); color: var(--accent); }
+
+.finding-title {
+  font-family: var(--mono);
+  font-weight: 600;
+  font-size: 0.9375rem;
+  color: var(--fg-bright);
+}
+
+.finding p, .finding ul {
+  font-size: 0.875rem;
+  margin: 0.5rem 0;
+}
+
+.finding ul { padding-left: 1.25rem; }
+.finding li { margin: 0.25rem 0; }
+
+code {
+  font-family: var(--mono);
+  font-size: 0.8125em;
+  background: var(--bg-raised);
+  padding: 0.15em 0.4em;
+  border-radius: 3px;
+}
+
+pre {
+  font-family: var(--mono);
+  font-size: 0.75rem;
+  line-height: 1.5;
+  background: var(--bg-raised);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 1rem;
+  overflow-x: auto;
+  color: var(--fg);
+  margin: 0.75rem 0;
+}
+
+.addr { color: var(--accent); }
+.danger { color: var(--critical); }
+.dim { color: var(--fg-dim); }
+
+.table-wrap { overflow-x: auto; margin: 0.75rem 0; }
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.8125rem;
+  font-variant-numeric: tabular-nums;
+}
+
+th {
+  font-family: var(--mono);
+  font-size: 0.6875rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--fg-dim);
+  text-align: left;
+  padding: 0.5rem 0.75rem;
+  border-bottom: 2px solid var(--border);
+  white-space: nowrap;
+}
+
+td {
+  padding: 0.4rem 0.75rem;
+  border-bottom: 1px solid var(--border);
+  vertical-align: top;
+}
+
+td:first-child { font-family: var(--mono); }
+
+.status-ok { color: var(--ok); }
+.status-crash { color: var(--critical); }
+.status-dead { color: var(--fg-dim); }
+
+.target-box {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 0.25rem 1rem;
+  font-size: 0.875rem;
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 1rem 1.25rem;
+  margin-bottom: 1.5rem;
+}
+.target-box dt {
+  font-family: var(--mono);
+  font-weight: 500;
+  color: var(--fg-dim);
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+.target-box dd { margin: 0; color: var(--fg-bright); }
+
+.poc-box {
+  background: var(--ok-dim);
+  border: 1px solid color-mix(in srgb, var(--ok) 30%, transparent);
+  border-radius: 8px;
+  padding: 1rem 1.25rem;
+  margin: 1rem 0;
+}
+.poc-box p {
+  font-size: 0.875rem;
+  margin: 0.25rem 0;
+}
+
+.diagram {
+  background: var(--bg-raised);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 1rem;
+  margin: 0.75rem 0;
+  overflow-x: auto;
+}
+
+.diagram pre {
+  background: none;
+  border: none;
+  padding: 0;
+  margin: 0;
+  font-size: 0.6875rem;
+  line-height: 1.6;
+}
+
+.timeline {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  margin: 1rem 0;
+  font-size: 0.8125rem;
+}
+
+.timeline-item {
+  display: grid;
+  grid-template-columns: 5rem 2rem 1fr;
+  align-items: start;
+  min-height: 2.5rem;
+}
+
+.timeline-time {
+  font-family: var(--mono);
+  font-size: 0.75rem;
+  color: var(--fg-dim);
+  text-align: right;
+  padding-top: 0.2rem;
+}
+
+.timeline-dot {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding-top: 0.35rem;
+}
+
+.timeline-dot::before {
+  content: '';
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--accent);
+  flex-shrink: 0;
+}
+
+.timeline-dot::after {
+  content: '';
+  width: 1px;
+  flex: 1;
+  background: var(--border);
+  min-height: 1rem;
+}
+
+.timeline-item:last-child .timeline-dot::after { display: none; }
+
+.timeline-label { padding-top: 0.1rem; }
+
+@media (max-width: 600px) {
+  h1 { font-size: 1.375rem; }
+  .finding { padding: 1rem; }
+  .target-box { grid-template-columns: 1fr; gap: 0.125rem 0; }
+  .target-box dt { margin-top: 0.5rem; }
+  .target-box dt:first-child { margin-top: 0; }
+  .timeline-item { grid-template-columns: 3.5rem 1.5rem 1fr; }
+}
+</style>
+
+<div class="wrap">
+
+<h1>Baofeng DM-32UV Security Assessment</h1>
+<p class="subtitle">
+  Firmware reverse engineering &amp; vulnerability research<br>
+  <span>CR1KK7ISG</span> &middot; 801 Labs &middot; 2026-10-20
+</p>
+
+<dl class="target-box">
+  <dt>Target</dt>
+  <dd>Baofeng DM-32UV (DP570UV)</dd>
+  <dt>Firmware</dt>
+  <dd>DM32.01.L01.048 (2022-06-27)</dd>
+  <dt>Platform</dt>
+  <dd>HR_C7000 DMR SoC, C-SKY CK803S, uC/OS-III RTOS</dd>
+  <dt>Interface</dt>
+  <dd>USB-UART (CH340, 115200 8N1)</dd>
+  <dt>Tools</dt>
+  <dd>Ghidra, Python 3 + pyserial, custom serial sniffers</dd>
+</dl>
+
+<!-- ================================================================ -->
+<h2>1. Confirmed Vulnerabilities</h2>
+
+<!-- V1: Password Bypass -->
+<div class="finding critical">
+  <div class="finding-head">
+    <span class="sev sev-critical">Critical</span>
+    <span class="finding-title">CPS Password Bypass &mdash; No Authentication Enforced</span>
+  </div>
+  <p>The CPS programming password is enforced exclusively by the Windows CPS software. The radio firmware accepts all programming commands without any authentication.</p>
+  <p>Skipping the <code>PASSSTA</code>/<code>PASWORD</code> handshake steps entirely still allows:</p>
+  <ul>
+    <li>Full <code>PROGRAM</code> mode entry</li>
+    <li>Complete codeplug read (137 pages, 561 KB)</li>
+    <li>All data identical to authenticated dumps (byte-for-byte verified)</li>
+  </ul>
+  <pre><span class="dim"># Normal protocol:</span>  PSEARCH &rarr; PASSSTA &rarr; PASWORD &rarr; <span class="danger">(password check)</span> &rarr; SYSINFO &rarr; ...
+<span class="dim"># Bypass:</span>           PSEARCH &rarr; <span class="addr">SYSINFO</span> &rarr; V-frames &rarr; PROGRAM &rarr; full access</pre>
+  <div class="poc-box">
+    <p><strong>PoC:</strong> <code>dm32_poc.py</code> &mdash; extracts radio identity, AES keys, channels, and contacts without authentication in 3.3 seconds.</p>
+  </div>
+</div>
+
+<!-- V2: Plaintext AES Keys -->
+<div class="finding critical">
+  <div class="finding-head">
+    <span class="sev sev-critical">Critical</span>
+    <span class="finding-title">AES-256 Encryption Keys Stored in Plaintext</span>
+  </div>
+  <p>DMR encryption key names and full 32-byte key values are stored unencrypted in the codeplug at radio address <code>0x00C000</code> (block type <code>0x10</code>). Combined with the password bypass, any AES-256 key can be extracted over USB in seconds.</p>
+  <pre><span class="dim">Radio page 0x00C000, offset 0x2FC:</span>
+  01 <span class="addr">45 6E 63 72 79 70 74 20 31</span> 00  <span class="dim">"Encrypt 1"</span>
+  ... 04 <span class="danger">41 42 43 44 45 46 47 48  <span class="dim">(32 bytes: full AES-256 key)</span>
+        4A 4B 4C 4D 4E 4F 50 51
+        52 53 54 55 56 57 58 59
+        5A 31 32 33 34 35 36 37</span></pre>
+  <p>Key structure: count byte, name (null-terminated), slot text, type byte (<code>0x04</code> = AES-256), then 32 raw key bytes.</p>
+</div>
+
+<!-- V3: OOB Handler Table -->
+<div class="finding critical">
+  <div class="finding-head">
+    <span class="sev sev-critical">Critical</span>
+    <span class="finding-title">Handler Table Out-of-Bounds Read</span>
+  </div>
+  <p>The USB command string table at <code class="addr">0x030a17b4</code> contains 11 entries, but the corresponding handler pointer table at <code class="addr">0x030a180c</code> has only 8 entries. Commands indexed 8&ndash;10 read past the table into adjacent string data.</p>
+
+  <div class="table-wrap">
+  <table>
+    <thead>
+      <tr><th>Index</th><th>Command</th><th>Handler Ptr</th><th>Target</th><th>Status</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>0</td><td>PROGRAM</td><td><code>0x0302bc92</code></td><td>Valid code</td><td class="status-ok">OK</td></tr>
+      <tr><td>1</td><td>PSEARCH</td><td><code>0x0302b894</code></td><td>Valid code</td><td class="status-ok">OK</td></tr>
+      <tr><td>2</td><td>DP570UV</td><td><code>0x0302b8ba</code></td><td>Valid code</td><td class="status-ok">OK</td></tr>
+      <tr><td>3</td><td>PASSSTA</td><td><code>0x0302b8e0</code></td><td>Valid code</td><td class="status-ok">OK</td></tr>
+      <tr><td>4</td><td>PASWORD</td><td><code>0x0302b930</code></td><td>Valid code</td><td class="status-ok">OK</td></tr>
+      <tr><td>5</td><td>PCTESTM</td><td><code>0x0302b980</code></td><td>Valid code</td><td class="status-ok">OK</td></tr>
+      <tr><td>6</td><td>RTCITEM</td><td><code>0x030ad770</code></td><td class="status-crash">DATA region</td><td class="status-crash">Crash</td></tr>
+      <tr><td>7</td><td>DEL-RCD</td><td><code>0x030ad77c</code></td><td class="status-crash">DATA region</td><td class="status-crash">Crash</td></tr>
+      <tr><td>8</td><td>IDCHECK</td><td class="status-crash"><code>0x6b736174</code></td><td class="status-crash">"task" &rarr; unmapped</td><td class="status-crash">OOB</td></tr>
+      <tr><td>9</td><td>SYSINFO</td><td class="status-crash"><code>0x6c614320</code></td><td class="status-crash">" Cal" &rarr; unmapped</td><td class="status-dead">IRAM bypass</td></tr>
+      <tr><td>10</td><td>588999</td><td class="status-crash"><code>0x7369446c</code></td><td class="status-crash">"lDis" &rarr; unmapped</td><td class="status-crash">OOB</td></tr>
+    </tbody>
+  </table>
+  </div>
+
+  <p><strong>SYSINFO</strong> works despite its OOB entry because the IRAM-based dispatch code (<code>0x00040D9C</code>) handles it directly, never consulting the flash table. The flash table is dead code &mdash; but reachable if execution is redirected through it.</p>
+
+  <div class="diagram"><pre>Handler table at 0x030a180c:                     Memory past table:
+
+ [0] 0302bc92  PROGRAM   ─┐                      030a182c: 74 61 73 6b  "task CallDisp..."
+ [1] 0302b894  PSEARCH    │ valid                 030a1830: 20 43 61 6c
+ [2] 0302b8ba  DP570UV    │ handler               030a1834: 6c 44 69 73
+ [3] 0302b8e0  PASSSTA    │ pointers              ▲  ▲  ▲
+ [4] 0302b930  PASWORD    │                       │  │  └─ 588999 reads here
+ [5] 0302b980  PCTESTM   ─┘                      │  └─── SYSINFO reads here
+ [6] 030ad770  RTCITEM ──── points to DATA        └───── IDCHECK reads here
+ [7] 030ad77c  DEL-RCD ──── points to DATA</pre></div>
+</div>
+
+<!-- V4: Proprietary Crypto -->
+<div class="finding warn">
+  <div class="finding-head">
+    <span class="sev sev-high">High</span>
+    <span class="finding-title">Proprietary Block Cipher for Key Derivation</span>
+  </div>
+  <p>The function <code>eeprom_init_crypto_keys</code> at <code class="addr">0x030c0e18</code> generates EEPROM encryption material using a custom block cipher instead of a vetted algorithm.</p>
+  <ul>
+    <li>8-byte blocks, 32 rounds of bit rotation (shift-3/shift-5)</li>
+    <li>5 different permutation sub-functions selected by key-schedule bits</li>
+    <li>I2C EEPROM at address <code>0x7A</code>, offset <code>0x30</code></li>
+    <li>Hardcoded interleaving constants: <code>00 16 FA B1 ED 9F 25 15</code></li>
+    <li>Key source material stored in IRAM (loaded at runtime, not in firmware binary)</li>
+  </ul>
+  <p>Deterministic key generation with static constants means all radios sharing the same firmware produce predictable key material.</p>
+</div>
+
+<!-- V5: No Rate Limiting -->
+<div class="finding warn">
+  <div class="finding-head">
+    <span class="sev sev-high">High</span>
+    <span class="finding-title">No Rate Limiting on UART Interface</span>
+  </div>
+  <p>The USB-UART interface processes commands at wire speed with no brute-force protection, lockout, or throttling. Combined with the password bypass, this is moot for authentication — but it also means codeplug writes are unrestricted.</p>
+</div>
+
+<!-- V6: Remote Control - No Authentication -->
+<div class="finding critical">
+  <div class="finding-head">
+    <span class="sev sev-critical">Critical</span>
+    <span class="finding-title">Unauthenticated Remote Radio Control (Stun / Kill / Monitor)</span>
+  </div>
+  <p>The DM-32UV implements DMR Tier 2 supplementary services for remote radio control, accessible via <strong>Contact &rarr; Radio Actions</strong>:</p>
+  <div class="table-wrap">
+  <table>
+    <thead>
+      <tr><th>Feature</th><th>String Address</th><th>Impact</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>Radio Check</td><td><code class="addr">0x030af8d4</code></td><td>Probe if target radio is active</td></tr>
+      <tr><td>Call Alert</td><td><code class="addr">0x030af8e0</code></td><td>Page / alert the target radio</td></tr>
+      <tr><td>Remote Mon.</td><td><code class="addr">0x030af8ec</code></td><td class="status-crash">Silently open target mic &mdash; eavesdrop</td></tr>
+      <tr><td>Radio Disable</td><td><code class="addr">0x030af8f8</code></td><td class="status-crash">Persistently disable target TX/RX</td></tr>
+      <tr><td>Radio Enable</td><td><code class="addr">0x030af908</code></td><td>Re-enable a disabled radio</td></tr>
+      <tr><td>Radio Stun</td><td><code class="addr">0x030b1494</code></td><td class="status-crash">Temporarily inhibit target radio</td></tr>
+    </tbody>
+  </table>
+  </div>
+
+  <h3>Zero Authentication</h3>
+  <p>Firmware analysis reveals <strong>no authentication mechanism whatsoever</strong> for incoming remote control commands:</p>
+  <ul>
+    <li>No &ldquo;Auth&rdquo;, &ldquo;Verify&rdquo;, or password-related strings found in firmware context</li>
+    <li>The ISR frame handler at <code class="addr">0x0301cad4</code> processes incoming CSBK opcodes (<code>0x04</code>, <code>0x1D</code>, <code>0x1F</code>, <code>0x24</code>, <code>0x27</code>) and auto-responds via <code>FUN_03017894</code> with <strong>no source ID validation</strong></li>
+    <li>DMR Tier 2 (ETSI TS 102 361-2) does not define authentication for CSBK supplementary services</li>
+    <li>Some commercial DMR vendors add a proprietary &ldquo;Remote Kill Password&rdquo; &mdash; Baofeng adds none</li>
+  </ul>
+
+  <h3>Protocol Flow (RX side)</h3>
+  <div class="diagram"><pre>Attacker SDR / DMR Radio
+  │
+  │  CSBK opcode 0x24 (Ahoy) + target DMR ID
+  ▼
+<span class="addr">isr_frame_handler</span> @ 0x0301cad4
+  │  Checks: state==0x04 AND opcode in {0x04,0x1D,0x1F,0x24,0x27}
+  │  For 0x24: also checks byte[7] MSB clear (Protect Flag)
+  │  <span class="danger">NO source ID check. NO password check. NO user prompt.</span>
+  ▼
+<span class="addr">FUN_03017894</span> @ 0x03017894
+  │  Auto-constructs response CSBK (opcode 0x87)
+  │  Extracts source/target IDs from received frame
+  │  Sends immediate ACK &mdash; radio complies silently
+  ▼
+Radio executes command:
+  &bull; Radio Check  &rarr; responds with ACK
+  &bull; Remote Monitor &rarr; opens mic, transmits audio
+  &bull; Radio Disable &rarr; disables TX/RX persistently
+  &bull; Radio Stun &rarr; inhibits radio temporarily</pre></div>
+
+  <h3>TX side</h3>
+  <p><code>radio_send_command(8)</code> at <code class="addr">0x030235f8</code> queues CSBK commands through the DMR TX pipeline. The command byte encodes the action type. Target DMR ID is encoded as BCD in <code>FUN_03023860</code>.</p>
+
+  <h3>Attack Requirements</h3>
+  <ul>
+    <li><strong>Target DMR ID:</strong> Broadcast in every voice/data transmission (easily captured with any DMR receiver or SDR)</li>
+    <li><strong>Frequency:</strong> Public repeater databases list frequencies and talkgroups</li>
+    <li><strong>Equipment:</strong> Any DMR radio with &ldquo;Radio Actions&rdquo; enabled, or an SDR capable of DMR TX (HackRF One, ~$300)</li>
+    <li><strong>Only protection:</strong> Per-channel &ldquo;decode&rdquo; flag in codeplug &mdash; if disabled, radio ignores the command. Likely <em>enabled</em> by default.</li>
+  </ul>
+
+  <div class="poc-box">
+    <p><strong>Impact:</strong> Any radio on the same frequency can stun, disable, or eavesdrop on any DM-32UV without authentication. Remote Monitor enables silent surveillance &mdash; the target radio opens its microphone with no on-screen indication. Mass denial-of-service is possible by iterating over known DMR IDs.</p>
+  </div>
+</div>
+
+<!-- V9: No Firmware Signing -->
+<div class="finding critical">
+  <div class="finding-head">
+    <span class="sev sev-critical">Critical</span>
+    <span class="finding-title">No Firmware Code Signing or Integrity Verification</span>
+  </div>
+  <p>The DM-32UV firmware binary has <strong>no cryptographic signature, no checksum, and no encryption</strong>. The bootloader accepts any binary with the correct 9-byte magic header.</p>
+
+  <h3>Firmware Format (fully decoded)</h3>
+  <div class="diagram"><pre>Offset    Content
+────────  ───────────────────────────────────
+0x000000  <span class="addr">42 46 55 56 33 32 2D 56 32</span>  "BFUV32-V2" (magic)
+0x000009  FF FF FF FF ... (padding)
+0x0000FD  <span class="addr">45 4E 44</span>                    "END" (header terminator)
+0x000100  <span class="danger">Raw flash image begins</span>     → maps to 0x03000000
+  ...     [536 KB main code/data]
+  ...     [84 KB IRAM code (copied to 0x00010000 at boot)]
+  ...     [4 KB sparse data]
+0x0D20FF  <span class="dim">00 00 00 00 ...</span>             Zero padding (no checksum/sig)</pre></div>
+
+  <h3>Bootloader Entry</h3>
+  <ul>
+    <li><strong>Entry method:</strong> Hold <strong>SK1 + PTT</strong> while powering on → green LED</li>
+    <li><strong>Interface:</strong> Same USB-UART (CH340, 115200 8N1)</li>
+    <li><strong>CPS menu:</strong> Tool → Firmware (accepts <code>*.bin</code> and <code>*.enc</code> files)</li>
+    <li><strong>Pre-requisite:</strong> "Allow Reset" must be enabled in CPS Optional Features</li>
+    <li><strong>Post-update:</strong> Factory reset required (SK1 + SK2 during power-on)</li>
+  </ul>
+
+  <h3>Missing Security Controls</h3>
+  <div class="table-wrap">
+  <table>
+    <thead><tr><th>Control</th><th>Status</th></tr></thead>
+    <tbody>
+      <tr><td>Code signing (RSA/ECDSA)</td><td class="status-crash">None</td></tr>
+      <tr><td>CRC/checksum at file tail</td><td class="status-crash">None — last 256 bytes are 0x00</td></tr>
+      <tr><td>Firmware encryption</td><td class="status-crash">None — 12.3% null bytes confirms plaintext</td></tr>
+      <tr><td>Secure Boot chain</td><td class="status-crash">None — bootloader has no verification step</td></tr>
+      <tr><td>Anti-rollback (version fuse)</td><td class="status-crash">None — any version flashable</td></tr>
+      <tr><td>Hardware write-protect</td><td class="status-crash">None — no JTAG/SWD lock observed</td></tr>
+    </tbody>
+  </table>
+  </div>
+
+  <div class="poc-box">
+    <p><strong>PoC:</strong> <code>dm32_firmware_patcher.py</code> — can parse, patch, diff, and build minimal valid firmware files. <code>dm32_bootloader_probe.py</code> — probes bootloader protocol when radio is in update mode.</p>
+    <p><strong>Impact:</strong> Anyone with USB access can flash arbitrary firmware. Combined with the OTA stack overflow (V7), an attacker could achieve <strong>persistent remote compromise</strong>: OTA exploit → shellcode writes modified firmware to flash → backdoor survives reboot.</p>
+  </div>
+</div>
+
+<!-- ================================================================ -->
+<h2>2. Hidden / Debug Command Analysis</h2>
+
+<p>The firmware contains 11 USB command strings, but only 6 are reachable through the active IRAM dispatch. The remaining 5 are dead code in flash.</p>
+
+<div class="table-wrap">
+<table>
+  <thead>
+    <tr><th>Command</th><th>Handler</th><th>Purpose</th><th>Reachable?</th></tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>PCTESTM</td>
+      <td><code>0x0302b980</code></td>
+      <td>Factory LCD/signal test. Branches on param values 4, 5, 6 to render VFO signal info. References "Opt Signal" display string. No USB response — display only.</td>
+      <td class="status-dead">Dead code</td>
+    </tr>
+    <tr>
+      <td>RTCITEM</td>
+      <td><code>0x030ad770</code></td>
+      <td>Handler points to data region (pointer table: <code>0x030bd4f8</code>, <code>0x030bd500</code>, ...). Execution would fault on undefined instructions.</td>
+      <td class="status-crash">Crash trigger</td>
+    </tr>
+    <tr>
+      <td>DEL-RCD</td>
+      <td><code>0x030ad77c</code></td>
+      <td>Same as RTCITEM — handler points into data. Likely record deletion that was neutered by pointing the handler at data instead of removing the string.</td>
+      <td class="status-crash">Crash trigger</td>
+    </tr>
+    <tr>
+      <td>IDCHECK</td>
+      <td class="status-crash">OOB</td>
+      <td>Index 8 in an 8-entry table. Reads <code>0x6b736174</code> ("task") as function pointer. Jump to unmapped memory → hard fault.</td>
+      <td class="status-crash">Crash trigger</td>
+    </tr>
+    <tr>
+      <td>588999</td>
+      <td class="status-crash">OOB</td>
+      <td>Index 10. Reads <code>0x7369446c</code> ("lDis") as function pointer. Same unmapped crash.</td>
+      <td class="status-crash">Crash trigger</td>
+    </tr>
+  </tbody>
+</table>
+</div>
+
+<h3>Why they're unreachable</h3>
+<p>The active USB command dispatch runs from <strong>IRAM</strong> (<code>0x00040D9C</code>), not from the flash command table. The IRAM code has hardcoded handlers for the 6 CPS commands (PSEARCH, PASSSTA, PASWORD, SYSINFO, PROGRAM, DP570UV) and ignores the flash table entirely. Evidence: SYSINFO works despite being OOB (index 9) in the flash table — proving it's routed by IRAM logic, not the table.</p>
+
+<h3>Command validation functions</h3>
+<p>Three <code>usb_cmd_compare_*</code> functions validate incoming data against codeplug-stored command lists:</p>
+<div class="table-wrap">
+<table>
+  <thead>
+    <tr><th>Function</th><th>Address</th><th>Source</th><th>Record Size</th><th>Compare Length</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>compare_a</td><td><code>0x030229b4</code></td><td>Codeplug section 0x11</td><td>57 bytes</td><td>11 bytes</td></tr>
+    <tr><td>compare_b</td><td><code>0x03049498</code></td><td>Dynamic (via <code>FUN_030483ac</code>)</td><td>Variable</td><td>16 bytes</td></tr>
+    <tr><td>compare_d</td><td><code>0x03058184</code></td><td>Codeplug section 0x65</td><td>33 bytes</td><td>16 bytes</td></tr>
+  </tbody>
+</table>
+</div>
+
+<!-- ================================================================ -->
+<h2>3. Protocol Architecture</h2>
+
+<div class="diagram"><pre>┌──────────────┐     USB-UART      ┌──────────────────────────────────┐
+│   Attacker   │ ◄──── CH340 ────► │        DM-32UV Radio             │
+│  (Python)    │   115200 8N1      │                                  │
+└──────────────┘                   │  ┌───────────────────────────┐   │
+                                   │  │  IRAM Dispatch (0x40D9C)  │   │
+   CPS Protocol:                   │  │  ├─ PSEARCH handler       │   │
+   ┌─ PSEARCH ──► model ID         │  │  ├─ SYSINFO handler       │   │
+   ├─ PASSSTA ──► password?        │  │  ├─ PROGRAM handler       │   │
+   ├─ PASWORD ──► check pw         │  │  ├─ PASSSTA handler       │   │
+   ├─ SYSINFO ──► ACK              │  │  ├─ PASWORD handler       │   │
+   ├─ V-frames ─► device info      │  │  └─ DP570UV handler       │   │
+   ├─ G-query ──► config data      │  └───────────────────────────┘   │
+   ├─ PROGRAM ──► enter prog       │                                  │
+   ├─ 02/FF/06 ─► mode active      │  ┌───────────────────────────┐   │
+   ├─ READ ─────► codeplug         │  │  Flash Table (dead code)  │   │
+   ├─ WRITE ────► codeplug         │  │  ├─ PCTESTM  → LCD test   │   │
+   └─ END ──────► exit             │  │  ├─ RTCITEM  → DATA crash │   │
+                                   │  │  ├─ DEL-RCD  → DATA crash │   │
+   Bypass:                         │  │  ├─ IDCHECK  → OOB crash  │   │
+   Skip PASSSTA/PASWORD            │  │  └─ 588999   → OOB crash  │   │
+   entirely → full access          │  └───────────────────────────┘   │
+                                   └──────────────────────────────────┘</pre></div>
+
+<!-- ================================================================ -->
+<h2>4. Attack Scenarios</h2>
+
+<div class="finding info">
+  <div class="finding-head">
+    <span class="sev sev-medium">Scenario</span>
+    <span class="finding-title">Encryption Key Theft</span>
+  </div>
+  <p>An attacker with brief physical access to a radio's USB port can extract all AES-256 encryption keys in under 4 seconds. This compromises the confidentiality of all DMR encrypted communications using those keys, across every radio sharing the same keys.</p>
+  <div class="timeline">
+    <div class="timeline-item"><span class="timeline-time">0.0s</span><div class="timeline-dot"></div><span class="timeline-label">Connect USB cable</span></div>
+    <div class="timeline-item"><span class="timeline-time">0.8s</span><div class="timeline-dot"></div><span class="timeline-label">PSEARCH &rarr; model ID</span></div>
+    <div class="timeline-item"><span class="timeline-time">1.0s</span><div class="timeline-dot"></div><span class="timeline-label">SYSINFO (skip password)</span></div>
+    <div class="timeline-item"><span class="timeline-time">1.5s</span><div class="timeline-dot"></div><span class="timeline-label">V-frames + PROGRAM mode</span></div>
+    <div class="timeline-item"><span class="timeline-time">2.8s</span><div class="timeline-dot"></div><span class="timeline-label">Read page 0x00C000</span></div>
+    <div class="timeline-item"><span class="timeline-time">3.3s</span><div class="timeline-dot"></div><span class="timeline-label">AES-256 keys extracted</span></div>
+  </div>
+</div>
+
+<div class="finding info">
+  <div class="finding-head">
+    <span class="sev sev-medium">Scenario</span>
+    <span class="finding-title">Identity Cloning</span>
+  </div>
+  <p>DMR ID, callsign, radio name, and owner name are all readable at <code>0x0C3000</code>. An attacker can clone a radio's identity to impersonate its operator on DMR networks.</p>
+</div>
+
+<div class="finding info">
+  <div class="finding-head">
+    <span class="sev sev-medium">Scenario</span>
+    <span class="finding-title">Channel / Contact Enumeration</span>
+  </div>
+  <p>Full channel list (frequencies, modes, names) and DMR contact database (talkgroup IDs, private call IDs) can be extracted to map an organization's communications infrastructure.</p>
+</div>
+
+<div class="finding critical">
+  <div class="finding-head">
+    <span class="sev sev-critical">Scenario</span>
+    <span class="finding-title">Over-the-Air Remote Surveillance</span>
+  </div>
+  <p>An attacker with an SDR and the target's DMR ID (captured from any overheard transmission) sends a CSBK Remote Monitor command. The target radio silently opens its microphone and transmits ambient audio back to the attacker. No physical access required. No on-screen alert on the target.</p>
+  <div class="timeline">
+    <div class="timeline-item"><span class="timeline-time">passive</span><div class="timeline-dot"></div><span class="timeline-label">Monitor DMR traffic, capture target DMR ID</span></div>
+    <div class="timeline-item"><span class="timeline-time">0.0s</span><div class="timeline-dot"></div><span class="timeline-label">Craft CSBK Ahoy (0x24) with Remote Monitor service kind</span></div>
+    <div class="timeline-item"><span class="timeline-time">0.1s</span><div class="timeline-dot"></div><span class="timeline-label">Target ISR auto-responds with ACK</span></div>
+    <div class="timeline-item"><span class="timeline-time">0.2s</span><div class="timeline-dot"></div><span class="timeline-label">Target mic opens &mdash; audio TX begins</span></div>
+    <div class="timeline-item"><span class="timeline-time">30s+</span><div class="timeline-dot"></div><span class="timeline-label">Eavesdropping active for &ldquo;Measure Period&rdquo; duration</span></div>
+  </div>
+</div>
+
+<div class="finding critical">
+  <div class="finding-head">
+    <span class="sev sev-critical">Scenario</span>
+    <span class="finding-title">Mass Radio Denial of Service</span>
+  </div>
+  <p>An attacker iterates over known DMR IDs on a talkgroup, sending Radio Disable CSBK commands. Each target radio is persistently disabled (TX and RX cease). Recovery requires a Radio Enable command from another radio or physical CPS reprogramming. A single attacker can disable an entire fleet in minutes.</p>
+</div>
+
+<div class="finding critical">
+  <div class="finding-head">
+    <span class="sev sev-critical">Scenario</span>
+    <span class="finding-title">Persistent Remote Compromise (OTA → Flash)</span>
+  </div>
+  <p>Combining the OTA stack overflow (V7) with the absence of firmware signing (V9), an attacker can achieve <strong>persistent remote code execution</strong> that survives power cycles:</p>
+  <div class="timeline">
+    <div class="timeline-item"><span class="timeline-time">passive</span><div class="timeline-dot"></div><span class="timeline-label">Capture target DMR ID from any overheard transmission</span></div>
+    <div class="timeline-item"><span class="timeline-time">0.0s</span><div class="timeline-dot"></div><span class="timeline-label">Transmit crafted DMR data packet with oversized text field</span></div>
+    <div class="timeline-item"><span class="timeline-time">0.1s</span><div class="timeline-dot"></div><span class="timeline-label">Stack overflow in <code>dmr_message_display_renderer</code></span></div>
+    <div class="timeline-item"><span class="timeline-time">0.1s</span><div class="timeline-dot"></div><span class="timeline-label">Return address overwritten → shellcode executes in IRAM</span></div>
+    <div class="timeline-item"><span class="timeline-time">0.2s</span><div class="timeline-dot"></div><span class="timeline-label">Shellcode calls flash erase/write via SoC peripheral registers</span></div>
+    <div class="timeline-item"><span class="timeline-time">0.5s</span><div class="timeline-dot"></div><span class="timeline-label">Modified firmware written to flash (no signature check)</span></div>
+    <div class="timeline-item"><span class="timeline-time">reboot</span><div class="timeline-dot"></div><span class="timeline-label">Backdoored firmware loads — persistent compromise</span></div>
+  </div>
+  <p><strong>Key enablers:</strong> No NX bit (shellcode runs from stack), no firmware signing (flash accepts arbitrary writes), no secure boot (modified firmware loads without verification). The CK803S has a flat address space with all memory executable.</p>
+</div>
+
+<!-- ================================================================ -->
+<h2>5. RF Data Path Analysis (SMS / APRS)</h2>
+
+<p>Systematic analysis of the firmware's RF data receive path identified architectural concerns regarding buffer safety in message handling. While exploitable overflow could not be confirmed through static analysis alone (key receive functions are in IRAM, not the flash image), the structural risk is high.</p>
+
+<!-- V7: snprintf(0xFFFFFFFF) Stack Overflow -->
+<div class="finding critical">
+  <div class="finding-head">
+    <span class="sev sev-critical">Critical</span>
+    <span class="finding-title">Over-the-Air Stack Buffer Overflow via snprintf(0xFFFFFFFF)</span>
+  </div>
+  <p>The firmware&rsquo;s string formatting wrapper uses <code>snprintf</code> with a <strong>4&nbsp;GB size limit</strong>, making every call site an effectively unbounded <code>sprintf</code>:</p>
+  <div class="diagram"><pre><span class="addr">sprintf_wrapper_varargs</span> @ 0x03061bb8
+  &darr;
+<span class="addr">sprintf_wrapper_unbounded</span> @ 0x03061bd4
+  &darr;
+<span class="danger">snprintf(dest, 0xFFFFFFFF, fmt, args)</span>  &larr; 4 GB &ldquo;limit&rdquo;</pre></div>
+  <p>This wrapper is called from the <strong>DMR message display renderer</strong> (<code class="addr">0x0301ea6c</code>) with an <strong>~8-byte stack buffer</strong> (<code>local_38</code>) as the destination, formatting data from incoming DMR packets:</p>
+  <ul>
+    <li>Caller DMR ID (24-bit, from received OTA frame)</li>
+    <li>Contact name / talker alias (variable length, OTA-sourced)</li>
+    <li>Message counters and slot indicators</li>
+  </ul>
+  <p>Multiple call sites in <code>dmr_message_display_renderer</code>:</p>
+  <pre>sprintf_wrapper_varargs(&amp;local_38, PTR_DAT_..., *(DAT_... + 0x10));  <span class="dim">// caller ID</span>
+sprintf_wrapper_varargs(&amp;local_38, PTR_PTR_..., *(DAT_... + 0x10));  <span class="dim">// with alias</span>
+sprintf_wrapper_varargs(&amp;local_38, PTR_PTR_..., uVar5);              <span class="dim">// slot ID</span></pre>
+  <h3>Exploitation Conditions (all met)</h3>
+  <div class="table-wrap">
+  <table>
+    <thead><tr><th>Mitigation</th><th>Status</th></tr></thead>
+    <tbody>
+      <tr><td>Stack canaries</td><td class="status-crash">None</td></tr>
+      <tr><td>ASLR</td><td class="status-crash">None &mdash; flat address space, fixed load addresses</td></tr>
+      <tr><td>NX / W^X</td><td class="status-crash">None &mdash; all memory executable on CK803S</td></tr>
+      <tr><td>Input validation</td><td class="status-crash">None before format</td></tr>
+    </tbody>
+  </table>
+  </div>
+  <div class="poc-box">
+    <p><strong>Impact:</strong> A crafted DMR data packet with an oversized contact name or caller ID field overflows the 8-byte stack buffer, overwrites the return address, and achieves <strong>arbitrary code execution over the air</strong> with no user interaction. This is a textbook stack-based buffer overflow on a platform with zero mitigations.</p>
+  </div>
+</div>
+
+<!-- V8: Unbounded String Functions -->
+<div class="finding warn">
+  <div class="finding-head">
+    <span class="sev sev-high">High</span>
+    <span class="finding-title">Unbounded String Functions on OTA Data Paths</span>
+  </div>
+  <p>The firmware links unbounded C string functions that operate on data derived from over-the-air (OTA) sources:</p>
+  <div class="table-wrap">
+  <table>
+    <thead>
+      <tr><th>Function</th><th>Address</th><th>Risk</th></tr>
+    </thead>
+    <tbody>
+      <tr><td><code>strcpy</code></td><td><code class="addr">0x030623cc</code></td><td class="status-crash">No length bound &mdash; copies until NUL</td></tr>
+      <tr><td><code>strcat</code></td><td><code class="addr">0x0306239c</code></td><td class="status-crash">Appends until NUL, no dest bound</td></tr>
+      <tr><td><code>memcpy</code></td><td><code class="addr">0x0306227c</code></td><td>Safe if size is validated</td></tr>
+      <tr><td><code>snprintf</code></td><td><code class="addr">0x03062584</code></td><td class="status-crash">Called with size=0xFFFFFFFF via wrapper &mdash; <strong>unbounded</strong></td></tr>
+    </tbody>
+  </table>
+  </div>
+  <p>Both <code>strcpy</code> and <code>strcat</code> are used in a firmware that processes variable-length text from untrusted sources: DMR SMS messages (UTF-16, up to ~280 chars), APRS information fields (up to 256 bytes), and contact names. A malicious OTA packet with an oversized or un-terminated string field could overflow a stack or heap buffer.</p>
+</div>
+
+<!-- V7: snprintf with 0xFFFFFFFF size -->
+<div class="finding critical">
+  <div class="finding-head">
+    <span class="sev sev-critical">Critical</span>
+    <span class="finding-title">Firmware-Wide sprintf Equivalent via snprintf(dest, 0xFFFFFFFF, fmt, ...)</span>
+  </div>
+  <p>The firmware's primary string formatting wrapper (<code>FUN_03061bb8</code> &rarr; <code>FUN_03061bd4</code>) calls <code>snprintf</code> with a size parameter of <code>0xFFFFFFFF</code>, effectively converting every call site into an unbounded <code>sprintf</code>:</p>
+  <pre class="code">// FUN_03061bd4 @ 0x03061bd4 &mdash; decompiled
+void format_string(char *dest, char *fmt, va_list args) {
+    snprintf(dest, <span class="danger">0xFFFFFFFF</span>, fmt, args);  // 4 GB &ldquo;limit&rdquo; = no limit
+}</pre>
+  <p>This wrapper is called from the <strong>DMR message display renderer</strong> (<code>FUN_0301ea6c</code>) with stack-local buffers as destinations:</p>
+  <pre class="code">// FUN_0301ea6c &mdash; message display (decompiled, simplified)
+char local_38[8];  // stack buffer, ~56 bytes from frame base
+...
+FUN_03061bb8(&amp;local_38, format_ptr, source_dmr_id);  // unbounded write!
+FUN_0300be38(0x28, 10, &amp;local_38, color, 0);         // render to LCD</pre>
+  <p><strong>Attack vector:</strong> A crafted DMR data packet with an oversized contact name or source ID string would trigger <code>FUN_03061bb8</code> to write past the end of the 8-byte <code>local_38</code> stack buffer. On CK803S (no stack canaries, no ASLR, no NX), this directly overwrites the return address on the stack &mdash; a classic stack-based buffer overflow leading to arbitrary code execution.</p>
+  <p><strong>Impact:</strong> Remote code execution via over-the-air DMR packet. No physical access required. No user interaction &mdash; the radio processes the packet automatically on receive.</p>
+  <p><strong>Scope:</strong> <code>FUN_03061bb8</code> is called from at least 16 format-string sites across the firmware (menu rendering, contact display, channel info, APRS info). Every call site that formats OTA-sourced data into a fixed-size stack buffer is potentially exploitable.</p>
+</div>
+
+<h3>DMR Frame Dispatch Architecture</h3>
+<p>Incoming DMR data flows through a multi-stage dispatcher:</p>
+<div class="diagram"><pre>RF Baseband (HR_C7000)
+  │
+  ▼
+<span class="addr">isr_frame_handler</span> @ 0x0301cad4
+  │  dispatches frame types 0x04, 0x1D, 0x1F, 0x24, 0x27
+  ▼
+<span class="addr">FUN_0301c978</span> &mdash; Main frame type dispatcher
+  │  58-entry jump table (type byte - 4 = index)
+  │  Allocates 24-byte buffers via FUN_0301c564
+  ▼
+<span class="addr">FUN_0301a78c</span> &mdash; RX frame filter/router
+  │  Extracts source/dest IDs from headers
+  │  Filters by radio's own ID, group membership
+  │  param_1: 1=CSBK, 2=data header, 3=voice, 6=data
+  ▼
+<span class="addr">FUN_03018eac</span> &mdash; Sub-dispatcher (16 entries)
+  │  Dispatches on data header subtype byte
+  ▼
+<span class="addr">FUN_0301ea6c</span> &mdash; Message display renderer <span class="danger">(&larr; OVERFLOW HERE)</span>
+  │  Calls FUN_03061bb8(stack_buf, fmt, ota_data)
+  │  <span class="danger">snprintf(dest, 0xFFFFFFFF, fmt, ...) &mdash; unbounded!</span>
+  ▼
+LCD output / message storage</pre></div>
+
+<p><strong>Key observation:</strong> Frame buffers are fixed at 24 bytes (matching DMR data block size). Standard-compliant packets fit. However, a malformed data header with a crafted block size or count field could cause the <code>FUN_030191c4</code> data block assembler to write beyond buffer boundaries.</p>
+
+<h3>APRS TX/RX Chain</h3>
+<p>APRS uses AX.25 framing over 1200 baud AFSK, processed by these identified functions:</p>
+
+<div class="table-wrap">
+<table>
+  <thead>
+    <tr><th>Address</th><th>Function</th><th>Role</th></tr>
+  </thead>
+  <tbody>
+    <tr><td><code>0x030593a4</code></td><td><code>nrzi_encode_bytes</code></td><td>NRZI encoding for AX.25 TX</td></tr>
+    <tr><td><code>0x030594b4</code></td><td>bit_reversal</td><td>LSB&harr;MSB conversion (APRS is LSB-first)</td></tr>
+    <tr><td><code>0x03059524</code></td><td>CRC-CCITT</td><td>AX.25 FCS (polynomial 0x1021)</td></tr>
+    <tr><td><code>0x030599d8</code></td><td>NRZI decode + deinterleave</td><td>112-bit block deinterleave (16&times;7 matrix)</td></tr>
+    <tr><td><code>0x03059aa0</code></td><td>APRS frame builder</td><td>AX.25 header + CRC + interleave + NRZI</td></tr>
+    <tr><td><code>0x03059b88</code></td><td>APRS RF transmit</td><td>Writes to hardware registers for TX</td></tr>
+  </tbody>
+</table>
+</div>
+
+<p>The <strong>APRS deinterleaver</strong> (<code>FUN_030599d8</code>) uses a 112-byte stack buffer for bit matrix transposition. The function operates on 14-byte input blocks. A malformed APRS frame with unexpected length could reach this function before AX.25 length validation occurs.</p>
+
+<h3>SMS / Message Storage</h3>
+<p>SMS-related UI strings confirm full messaging support:</p>
+<ul>
+  <li><code>"Msg Received"</code> @ <code class="addr">0x030afdd4</code></li>
+  <li><code>"Message Sent"</code> @ <code class="addr">0x030afe7c</code></li>
+  <li><code>"Inbox %d/%d"</code> @ <code class="addr">0x030a32e4</code> &mdash; format string with counters</li>
+  <li><code>"SMS Prompt"</code> @ <code class="addr">0x030ae848</code></li>
+  <li><code>"SMS Format"</code> @ <code class="addr">0x030aed90</code></li>
+  <li><code>"Quick Text %d/%d"</code> @ <code class="addr">0x030a3280</code> &mdash; format string with counters</li>
+  <li><code>"APRS Receive"</code> @ <code class="addr">0x030af1e8</code></li>
+  <li><code>"APRS Info %d/%d"</code> @ <code class="addr">0x030a954c</code> &mdash; format string with counters</li>
+  <li><code>"GPS Info Send"</code> @ <code class="addr">0x030afdb8</code></li>
+</ul>
+<p>The <code>%d/%d</code> format strings suggest message indexing. If either counter originates from OTA data (e.g., a DMR packet advertising "message 3 of 5"), and the values aren't validated, integer overflow or unexpected array indexing could occur.</p>
+
+<h3>IP/UDP Transport Layer</h3>
+<p>DMR SMS uses IP/UDP encapsulation. <code>FUN_03018cc0</code> builds IP headers (starting with <code>0x45</code> = IPv4, IHL=5) and UDP headers with one's-complement checksums. The payload length field at <code>param_1 + 0x36c</code> directly controls copy sizes in the data block assembler, making it a high-value target for malformed packet injection.</p>
+
+<!-- ================================================================ -->
+<h2>6. Codeplug Data Map</h2>
+
+<div class="table-wrap">
+<table>
+  <thead>
+    <tr><th>Address</th><th>Block</th><th>Content</th><th>Record Format</th></tr>
+  </thead>
+  <tbody>
+    <tr><td><code>0x00C000</code></td><td>0x10</td><td>Encryption keys</td><td>Name (null-term) + type (0x04=AES-256) + 32-byte key</td></tr>
+    <tr><td><code>0x00D000</code></td><td>&mdash;</td><td>Channel data (zone 1)</td><td>48B records: name(16) + BCD freq(4+4) + mode flags</td></tr>
+    <tr><td><code>0x00E000</code></td><td>&mdash;</td><td>Channel data (zone 2)</td><td>Same format as zone 1</td></tr>
+    <tr><td><code>0x05F000</code></td><td>&mdash;</td><td>DMR contacts</td><td>24B records: name(16) + rsv(1) + ID(3 LE) + type(1) + flags(3)</td></tr>
+    <tr><td><code>0x0C3000</code></td><td>&mdash;</td><td>Radio identity</td><td>DMR ID at +0x10 (3B LE), name +0x13, callsign +0x20, owner +0x33</td></tr>
+  </tbody>
+</table>
+</div>
+
+<p>Full codeplug: 137 non-empty 4KB pages (561 KB). Extractable in ~60 seconds unauthenticated.</p>
+
+<!-- ================================================================ -->
+<h2>7. Firmware Binary Structure</h2>
+
+<p>Complete mapping of the firmware file <code>DM32_L01_048_20250821.bin</code> (860,416 bytes):</p>
+
+<div class="diagram"><pre>File Offset   Flash Address    Size     Content
+───────────   ─────────────    ──────   ─────────────────────────────
+0x000000      —                256 B    Header: "BFUV32-V2" + 0xFF pad + "END"
+0x000100      0x03000000       536 KB   Main firmware (code + rodata)
+0x083100      0x03083000       20 KB    Sparse data / padding
+0x088100      0x03088000       295 KB   Data tables + IRAM source image
+  └ 0x0BD868  0x030BD768       82 KB    IRAM code (→ 0x00010000 at boot)
+0x0D0100      0x030D0000       8 KB     Sparse data + zero padding</pre></div>
+
+<h3>Memory Map (Runtime)</h3>
+<div class="diagram"><pre>Address Range           Size     Content
+──────────────────────  ───────  ──────────────────────────────
+0x00000000-0x0000FFFF   64 KB   Boot ROM / vectors (not in FW binary)
+<span class="addr">0x00010000-0x00057FFF</span>   288 KB  <span class="addr">IRAM</span> — .text+.data copied from flash at boot
+  └ 0x00010000-0x0002F098        .text/.data (from flash 0x030BD768)
+  └ 0x0004A7B0+0x783C           .bss (zeroed at boot)
+  └ 0x00040D9C                  USB command dispatcher (active)
+<span class="addr">0x03000000-0x030D20FF</span>   840 KB  <span class="addr">Flash</span> — main firmware image
+  └ 0x0301cad4                  ISR frame handler (DMR RX)
+  └ 0x0301ea6c                  Message display renderer (OVERFLOW)
+  └ 0x03061bb8                  sprintf wrapper (snprintf 0xFFFFFFFF)
+  └ 0x030A17B4                  USB command string table
+  └ 0x030ADF54                  Menu item table (GB2312)
+  └ 0x030AEE24                  Codeplug section jump table
+<span class="dim">0xC0000000-0xC00FFFFF</span>   1 MB    <span class="dim">Peripheral registers</span> (SoC hardware)
+  └ 0xC001xxxx                  Flash controller, UART, SPI, I2C
+  └ 0xC004xxxx                  DMR baseband, RF control
+  └ 0xC008xxxx                  GPIO, timers, DMA</pre></div>
+
+<h3>Boot Sequence</h3>
+<div class="diagram"><pre>Power On
+  │
+  ├─ [SK1+PTT held?] ─── YES ──► <span class="danger">Bootloader mode</span> (green LED)
+  │                              Accept firmware over USB-UART
+  │                              <span class="danger">No signature verification</span>
+  │                              Write directly to flash
+  │
+  └─ [Normal boot]
+     │
+     ▼
+  Boot ROM (0x00000000)
+     │  Initialize clocks, peripherals
+     │  Copy IRAM .text from flash 0x030BD768 → IRAM 0x00010000
+     │  Zero IRAM .bss at 0x0004A7B0 (0x783C bytes)
+     ▼
+  Main firmware entry (0x03000100)
+     │  uC/OS-III RTOS init
+     │  Peripheral setup (RF, LCD, keypad, USB-UART)
+     │  Start task scheduler
+     ▼
+  Normal operation (DMR radio)</pre></div>
+
+<!-- ================================================================ -->
+<h2>8. Firmware Update Protocol (CPS &rarr; Radio)</h2>
+
+<p>Firmware update protocol decoded from <strong>live serial capture</strong> of CPS &harr; radio traffic (2026-10-20). <span class="danger">The actual protocol is YMODEM-1K with a custom pre-handshake</span>&mdash;completely separate from the CPS codeplug read/write protocol. No password required; the CPS UI gates are cosmetic only.</p>
+
+<p class="note"><strong>Note:</strong> CPS function <code>FUN_0041d280</code> appears to implement an older W-command write protocol not used by the current CPS. The live capture reveals standard YMODEM-1K.</p>
+
+<h3>Full Handshake Sequence (from capture)</h3>
+<div class="diagram"><pre>Phase  TX (CPS &rarr; Radio)                     RX (Radio &rarr; CPS)
+─────  ─────────────────────────────────     ──────────────────────────────
+ 1     <span class="mono">52</span> ('R') &mdash; poll, retry until ACK      <span class="mono">00</span> (not ready) or <span class="mono">06</span> (ACK)
+
+ 2     <span class="mono">4D 00 00 00 01</span> ('M' model query)       <span class="mono">4D 01 09</span> (9 bytes follow)
+       <span class="mono">06</span> (ACK)                               <span class="accent">"BFUV32-V2"</span> (9 bytes)
+
+ 3     <span class="mono">45 00 00 00 00</span> ('E' erase/prepare)     <span class="mono">06</span> (ACK &mdash; flash erased)
+
+ 4     <span class="mono">31</span> ('1' &mdash; YMODEM CRC-16 request)     <span class="mono">43</span> ('C' &mdash; CRC mode active)
+
+ 5     <span class="mono">01</span> (SOH &mdash; 128B block)                 <span class="mono">43</span> ('C')
+       132B metadata packet:                  <span class="mono">06 43</span> (ACK + ready)
+         [00][FF] block 0 + complement
+         [128B] filename\0 + size_ascii\0
+         [2B] CRC-16/XMODEM
+
+ 6     Repeat 840&times;:                           <span class="danger">[Data transfer loop]</span>
+         <span class="mono">02</span> (STX &mdash; 1024B block)               <span class="mono">43</span> ('C')
+         1028B data packet:                   <span class="mono">06</span> (ACK)
+           [blk_num][0xFF-blk_num]
+           [1024B firmware data]
+           [2B] CRC-16/XMODEM
+
+ 7     <span class="mono">04</span> (EOT &mdash; end of transmission)        <span class="mono">48 12</span> (done)</pre></div>
+
+<h3>YMODEM-1K Data Block Format</h3>
+<div class="diagram"><pre>Byte:   0        1          2..1025             1026..1027
+       ┌────────┬──────────┬───────────────────┬────────────┐
+       │blk_num │ ~blk_num │   1024B payload   │  CRC-16    │
+       │ (1,2..)│(FE,FD..) │  firmware data    │  XMODEM    │
+       └────────┴──────────┴───────────────────┴────────────┘
+
+  blk_num  = sequential counter (1..255, wraps at 256)
+  ~blk_num = one's complement (0xFF - blk_num)
+  CRC-16   = XMODEM CRC (poly 0x1021, init 0x0000) over 1024B payload
+  Preceded by STX (0x02); radio responds 'C' (0x43) then ACK (0x06)
+
+  Firmware .bin: 256B header (BFUV32-V2 + 0xFF pad) stripped before transfer
+  Flash payload: 860,160 bytes = 840 blocks &times; 1024B &asymp; 5 min @ 115200 baud</pre></div>
+
+<h3>Hardcoded Factory Passwords</h3>
+<div class="table-wrap">
+<table>
+  <thead>
+    <tr><th>Password</th><th>Purpose</th><th>CPS Address</th></tr>
+  </thead>
+  <tbody>
+    <tr><td><code class="danger">374612</code></td><td>Factory test mode (LCD/signal)</td><td><code class="addr">0x004e6174</code></td></tr>
+    <tr><td><code class="danger">bfcps</code></td><td>CPS configuration password</td><td><code class="addr">0x004e617c</code></td></tr>
+    <tr><td><code class="danger">66660501</code></td><td>Firmware flash authorization</td><td><code class="addr">0x004e616c</code></td></tr>
+  </tbody>
+</table>
+</div>
+
+<p>All three passwords are hardcoded as plaintext strings in <code>CPS.exe</code> at <code>firmware_flash_handler</code> (<code>0x0042F7D0</code>). The firmware flash password <code>"66660501"</code> is model-specific (matches the radio's device info response). These passwords gate CPS UI access only&mdash;the <strong>radio firmware accepts the PROGRAM handshake with no password verification</strong> (see V1: CPS Password Bypass).</p>
+
+<h3>Attack Scenario: Over-the-Air Persistent Compromise</h3>
+<div class="diagram"><pre>Attacker Radio / SDR              Target DM-32UV
+        │                                │
+  1.    │── DMR data packet ──────────►  │  Malformed contact name
+        │   (oversized field)            │  triggers stack overflow
+        │                                │  (V9: snprintf 0xFFFFFFFF)
+        │                                │
+  2.    │                                │◄ ROP chain / shellcode executes
+        │                                │  on CK803S (no NX, no ASLR)
+        │                                │
+  3.    │                                │◄ Shellcode writes to flash via
+        │                                │  flash controller @ 0xC001xxxx
+        │                                │  <span class="danger">No signing = permanent implant</span>
+        │                                │
+  4.    │                                │◄ Modified firmware persists
+        │                                │  across power cycles, factory
+        │                                │  resets, and CPS reprogramming
+        │                                │
+  5.    │◄── Exfil via DMR data ────────│  Encryption keys, GPS, audio
+        │    or remote monitor ──────── │  sent back to attacker</pre></div>
+
+<p><strong>PoC tools created:</strong></p>
+<ul>
+  <li><code>dm32_reader.py</code> &mdash; <strong>EEPROM reader</strong>: full 16MB dump, key extraction, radio ID, arbitrary address read (normal mode)</li>
+  <li><code>dm32_ymodem_flash.py</code> &mdash; <strong>YMODEM-1K firmware flasher</strong> (decoded from live capture, verified CRC match)</li>
+  <li><code>dm32_sniff2.py</code> &mdash; PTY serial proxy/sniffer for capturing CPS &harr; radio traffic via Wine</li>
+  <li><code>dm32_firmware_patcher.py</code> &mdash; Firmware parse/patch/diff/build (header manipulation, IRAM extraction)</li>
+</ul>
+
+<!-- ================================================================ -->
+<h2>9. Full EEPROM Dump &amp; Memory Map</h2>
+
+<p>Complete 16 MB dump of the external SPI flash/EEPROM via the CPS READ command (24-bit addressing, no boundary checks). <strong>16,777,216 bytes</strong>, zero read errors, 1757 seconds at 9.3 KB/s. SHA-256: <code>44bf9b45...df2f444e</code>.</p>
+
+<div class="poc-box">
+  <p><strong>PoC:</strong> <code>dm32_reader.py dump 0x000000 0x1000000 dm32_eeprom_full.bin</code> &mdash; reads the entire address space using the trivial <code>"123"</code> password. No authentication enforced (see V1).</p>
+</div>
+
+<h3>Memory Map</h3>
+<div class="diagram"><pre>Address Range          Size       Content
+──────────────────     ─────────  ──────────────────────────────────
+<span class="addr">0x000000-0x09FFFF</span>      640 KB     Codeplug (settings, channels, zones, keys, contacts)
+  └ 0x00C000                     AES-256 encryption keys (plaintext)
+  └ 0x00D000-0x06A000            Channel data + local DMR contacts
+  └ 0x082000-0x09FFFF            Extended config (DTMF, scan lists, zones)
+
+<span class="addr">0x0A0000-0x0C7FFF</span>      160 KB     Post-codeplug system data
+  └ 0x0A3000           4 KB      Configuration flags
+  └ <span class="danger">0x0A7000</span>           4 KB      <span class="danger">RF calibration data</span> (power/RSSI tables)
+  └ 0x0AC000           4 KB      Boot icon (RGB565, 64&times;32 amber pixels)
+  └ 0x0AE000-0x0B1FFF  16 KB     Reserved (zeroed &mdash; boot image slot?)
+  └ 0x0BC000           4 KB      DMR config records (structured, 16B entries)
+  └ <span class="addr">0x0BF000</span>           4 KB      Boot strings ("WELCOME" / "DMR Radio")
+  └ 0x0C3000           4 KB      Radio identity (DMR ID, callsign, owner name)
+  └ <span class="danger">0x0C5000</span>           4 KB      <span class="danger">CK803S executable code</span> (EEPROM-resident)
+
+<span class="addr">0x0C8000-0x1FFFFF</span>      1.22 MB    Font/glyph bitmaps + executable code
+  └ 0x0C8000-0x0C8013             Sequential index (00-13 lookup table)
+  └ 0x0C8014+                     Mixed CK803S machine code &amp; data
+  └ <span class="danger">1,636 function prologues</span> detected (CK803S push instructions)
+  └ Entropy: 5.34 bits/byte (consistent with compiled code)
+
+<span class="addr">0x200000-0xE0BFFF</span>      12.05 MB   DMR contact database (~200K records)
+  └ 0x201000           Index table (16-byte entries: ID + offset + flags)
+  └ 0x300000+          Contact name records (name, callsign, city, state, country)
+  └ 0x400000-0xE0BFFF  Bulk name data (3 major regions at 4MB boundaries)
+
+<span class="dim">0xE0C000-0xFFEFFF</span>      <span class="dim">2.0 MB</span>     <span class="dim">Empty (0xFF)</span>
+<span class="addr">0xFFF000-0xFFFFFF</span>      4 KB       Flash end sentinel (FF 00 00 00...)
+</pre></div>
+
+<h3>Flash Usage</h3>
+<div class="diagram"><pre>MB   0   1   2   3   4   5   6   7   8   9  10  11  12  13  14  15
+    [###|###|###|###|###|###|###|###|###|###|###|###|###|###|...|...]
+     ▲codeplug ▲fonts/code        ▲contact database             ▲empty
+    87.5% utilized (14 / 16 MB)</pre></div>
+
+<h3>Key Findings</h3>
+
+<div class="finding warn">
+  <div class="finding-head">
+    <span class="sev sev-high">High</span>
+    <span class="finding-title">RF Calibration Data Readable &amp; Writable</span>
+  </div>
+  <p>Per-unit RF calibration data at <code class="addr">0x0A7000</code> contains power level DAC values, RSSI offset tables, and frequency compensation curves. This data is unique per radio (factory-tuned) and accessible via the same unauthenticated READ/WRITE commands as the codeplug.</p>
+  <ul>
+    <li><strong>Read risk:</strong> Calibration values reveal hardware characteristics, manufacturing date codes, and RF fingerprinting data</li>
+    <li><strong>Write risk:</strong> Corrupting calibration data can cause out-of-spec TX power (regulatory violation), incorrect frequency offsets, or total radio malfunction requiring factory recalibration</li>
+  </ul>
+  <pre><span class="dim">0x0A7040:</span> 144 138 135 138 138 193 182 173 160 174 235 221 250 218 210  <span class="dim">(power DAC)</span>
+<span class="dim">0x0A7050:</span> 113 110 104 101 103  23  23  23  24  24  95  93  85  84  86  <span class="dim">(RSSI offsets)</span>
+<span class="dim">0x0A7080:</span>  61  61  61  61  61  71  71  71  71  71                      <span class="dim">(band markers)</span></pre>
+</div>
+
+<div class="finding warn">
+  <div class="finding-head">
+    <span class="sev sev-high">High</span>
+    <span class="finding-title">Executable Code in External EEPROM</span>
+  </div>
+  <p><strong>1,636 CK803S function prologues</strong> (push register-save instructions) detected in the 0x0C5000 and 0x0C8000-0x1FFFFF regions. Entropy analysis (5.34 bits/byte) is consistent with compiled machine code, not font bitmaps.</p>
+  <ul>
+    <li>This code resides in the <strong>external SPI EEPROM</strong>, accessible via the same unauthenticated READ/WRITE commands</li>
+    <li>If the CPU executes code from this region (XIP or copy-to-RAM), an attacker could <strong>inject arbitrary code by writing to EEPROM addresses</strong> using the CPS protocol</li>
+    <li>Unlike firmware flash (write-only via YMODEM bootloader), EEPROM code is <strong>readable and writable</strong> in normal operating mode</li>
+    <li>No integrity checks observed on EEPROM code regions</li>
+  </ul>
+  <div class="poc-box">
+    <p><strong>Impact:</strong> If this code is executed at runtime, persistent backdoors can be installed via USB without entering bootloader mode&mdash;just normal CPS programming mode with no password. The code persists across power cycles and firmware updates (YMODEM only reflashes internal flash, not external EEPROM).</p>
+  </div>
+</div>
+
+<div class="finding info">
+  <div class="finding-head">
+    <span class="sev sev-medium">Info</span>
+    <span class="finding-title">Boot Image Storage Identified</span>
+  </div>
+  <p>The boot display configuration is at <code class="addr">0x0BF000</code>:</p>
+  <pre><span class="addr">0x0BF001</span>: "WELCOME"        <span class="dim">Boot line 1 (UTF-8, 13 bytes max)</span>
+<span class="addr">0x0BF00F</span>: "DMR Radio"       <span class="dim">Boot line 2 (UTF-8, 13 bytes max)</span>
+<span class="addr">0x0BF01D</span>: 01               <span class="dim">Boot display mode (0=text, 1=image?)</span></pre>
+  <p>A 64&times;32 RGB565 boot icon at <code class="addr">0x0AC000</code> uses an amber-on-dark palette (background <code>0x18C2</code> = RGB 24,24,16; foreground <code>0xE3C2</code> = RGB 230,121,16). The 16 KB zeroed region at <code>0x0AE000-0x0B1FFF</code> appears reserved for a larger boot image (the CPS "PowerOnPicture" tool likely writes here).</p>
+</div>
+
+<div class="finding info">
+  <div class="finding-head">
+    <span class="sev sev-medium">Info</span>
+    <span class="finding-title">Complete DMR Contact Database Extracted</span>
+  </div>
+  <p>The 12 MB contact database (0x200000-0xE0BFFF) contains approximately 200,000 DMR user records with full PII:</p>
+  <ul>
+    <li>DMR ID (24-bit, little-endian)</li>
+    <li>Callsign (up to 8 chars)</li>
+    <li>Full name (first + last)</li>
+    <li>City, state/province, country</li>
+  </ul>
+  <pre><span class="dim">0x300000:</span> Philip E  <span class="dim">(name)</span>   KE8DRK <span class="dim">(callsign)</span>   Columbus, Ohio, United States
+<span class="dim">0x300060:</span> Bennie C  <span class="dim">(name)</span>   KC8DEO <span class="dim">(callsign)</span>   Doylestown, Ohio, United States</pre>
+  <p>This is a mirror of the public RadioID.net database, pre-loaded into every radio. Extractable in ~30 minutes via unauthenticated USB read.</p>
+</div>
+
+<h3>AES Key Storage Layout (confirmed from dump)</h3>
+<div class="diagram"><pre>Address     Content
+──────────  ──────────────────────────────────────────
+0x00C000    Key name slot 0: <span class="addr">"Sys 1"</span> (32 bytes, null-padded)
+0x00C020    Key name slot 1: (empty)
+  ...
+0x00C300    Key value record 0:
+              01 <span class="addr">4F 61 6B 4B 65 79</span> 00          <span class="dim">"OakKey"</span>
+              20 31 00 04 00 00 ...             <span class="dim">slot "1", type 0x04 (AES-256)</span>
+              <span class="dim">(key bytes: all 0x00 — empty)</span>
+0x00C320    Key value record 1:
+              02 <span class="addr">45 6E 63 72 79 70 74 20 31</span>  <span class="dim">"Encrypt 1"</span>
+              00 04                             <span class="dim">type 0x04 (AES-256)</span>
+              <span class="danger">41 42 43 44 45 46 47 48         ABCDEFGH</span>
+              <span class="danger">4A 4B 4C 4D 4E 4F 50 51         JKLMNOPQ</span>
+              <span class="danger">52 53 54 55 56 57 58 59         RSTUVWXY</span>
+              <span class="danger">5A 31 32 33 34 35 36 37</span>         <span class="dim">Z1234567</span></pre></div>
+
+<!-- ================================================================ -->
+<h2>10. Scope &amp; Responsible Disclosure</h2>
+
+<p>These findings affect the <strong>HR_C7000 DMR baseband platform</strong> (Hualai / HYTERA OEM). The password bypass and plaintext key storage are likely architectural to the platform, not specific to the DM-32UV model. Other HR_C7000-based radios (DP570UV variants, OEM rebrands) should be assumed vulnerable until tested.</p>
+
+<p>Firmware version tested: <code>DM32.01.L01.048</code> (2022-06-27). Protocol interface: USB-UART via CH340 (VID:PID <code>1a86:7523</code>).</p>
+
+</div>
